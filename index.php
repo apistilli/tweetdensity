@@ -6,13 +6,12 @@ $instance = new tweetdensity;
 if($instance->validate()){
 	# perform the call to twitter
 	$response = $instance->call_twitter();
-	print $response;
-	print "empty?";
 	# parse the response and count the tweets per hour
-
+	$parsed = $instance->parse_response($response);
 }
 # write and send the output
-print $instance->create_response();
+print_r($instance->density);
+print $instance->send_response();
 
 
 class tweetdensity {
@@ -20,6 +19,7 @@ class tweetdensity {
 	var $handle = '';
 	var $count = '';
 	var $err;
+	var $density = array();
 	var $tweet_url = 'https://api.twitter.com/1/statuses/user_timeline';
 	function validate(){
 		$this->type = $_GET['type'];
@@ -34,20 +34,35 @@ class tweetdensity {
 		}
 		return true;
 	}
-	function create_response(){
+	function parse_response($res){
+		print "create response";
+		$obj = json_decode($res);
+		foreach ($obj as $tw){
+			$d = $tw->created_at;
+			$t = strtotime($d);
+			$h = date("H",$t);
+			$this->density[$h]++;
+			print $tw->text . " $d - $t - ". date("H",$t) . "<br />";
+		}
+		#print_r($obj);
 	}
 
 	function call_twitter(){
-		$url = $this->tweet_url.'.'.$this->type.'?screen_name='.$this->handle.'&count='.$this->count;
+		$url = $this->tweet_url.'.json?screen_name='.$this->handle.'&count='.$this->count;
 		print "tweet url: $url\n";
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $url);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
+		curl_setopt($ch, CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']);
+		curl_setopt($ch, CURLOPT_VERBOSE, 1);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
 		$res = curl_exec($ch);
+		if($res === false){
+			echo "Curl error $url : ".  curl_error($ch). curl_errno($ch);
+		}
 		curl_close($ch);
 		return $res;
 	}
 
-	function parse_response(){
+	function send_response(){
 	}
 }
